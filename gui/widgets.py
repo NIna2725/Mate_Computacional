@@ -79,7 +79,7 @@ class ImageCanvas(tk.Frame):
 
     def __init__(self, parent, title: str, w: int = 320, h: int = 260, **kw):
         super().__init__(parent, bg=C["bg_card"], **kw)
-        self._w, self._h = w, h
+        self._width, self._height  = w, h
         self._ref = None          # evita garbage-collection del PhotoImage
 
         # Título sobre el canvas
@@ -95,7 +95,7 @@ class ImageCanvas(tk.Frame):
     # ─────────────────────────────────────────
     def _placeholder(self):
         self.canvas.delete("all")
-        cx, cy = self._w // 2, self._h // 2
+        cx, cy = self._width // 2, self._height  // 2
         r = 28
         # Ícono simple de imagen
         self.canvas.create_rectangle(cx - r, cy - r, cx + r, cy + r,
@@ -114,7 +114,7 @@ class ImageCanvas(tk.Frame):
         """Muestra un PhotoImage centrado en el canvas."""
         self._ref = photo
         self.canvas.delete("all")
-        self.canvas.create_image(self._w // 2, self._h // 2,
+        self.canvas.create_image(self._width // 2, self._height  // 2,
                                  anchor="center", image=photo)
 
     def clear(self):
