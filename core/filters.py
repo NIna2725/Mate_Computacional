@@ -186,8 +186,6 @@ def apply_median_filter(
 # ══════════════════════════════════════════════════════════
 #  Filtro 3: Laplaciano
 # ══════════════════════════════════════════════════════════
-
-# Máscaras Laplacianas (del PDF MA475, p.13-14)
 _LAPLACIAN_MASKS = {
     LaplacianVariant.CROSS:     np.array([[ 0,  1,  0],
                                           [ 1, -4,  1],

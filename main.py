@@ -13,9 +13,6 @@ Requisitos:
 import sys
 import os
 
-# Añade el directorio raíz del proyecto al sys.path para que los imports
-# absolutos (core.*, gui.*) funcionen correctamente sin importar desde
-# qué directorio se ejecute el script.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from gui.app import App
