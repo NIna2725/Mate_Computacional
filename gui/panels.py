@@ -16,6 +16,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image
 import numpy as np
+import cv2
 
 from core import (
     apply_mean_filter, apply_median_filter,
@@ -377,9 +378,10 @@ class LaplacianPanel(BasePanel):
 
 class SobelPanel(BasePanel):
     """
-    Panel Sobel con layout extendido de 4 imágenes:
-        original  |  magnitud
-        grad fx   |  grad fy
+    Panel Sobel con layout extendido de 5 imágenes:
+        original        |  magnitud
+        grad fx         |  grad fy
+        original + magnitud (overlay, centrado)
     """
 
     NAME  = "Operador Sobel"
@@ -388,7 +390,7 @@ class SobelPanel(BasePanel):
              "Detecta bordes verticales (fx), horizontales (fy) y su combinación.")
 
     def _build_image_area(self, parent):
-        """Sobrescribe el layout para mostrar 4 imágenes."""
+        """Sobrescribe el layout para mostrar 5 imágenes."""
         # Fila 1: original + magnitud
         r1 = tk.Frame(parent, bg=C["bg_panel"])
         r1.pack(fill="both", expand=True)
@@ -427,6 +429,18 @@ class SobelPanel(BasePanel):
                                   w=295, h=200)
         self._cv_fy.pack(expand=True)
 
+        tk.Frame(parent, bg=C["border"], height=1).pack(fill="x", pady=4)
+
+        # Fila 3: overlay original + magnitud (centrado)
+        r3 = tk.Frame(parent, bg=C["bg_panel"])
+        r3.pack(fill="both", expand=True)
+
+        combf = tk.Frame(r3, bg=C["bg_panel"])
+        combf.pack(expand=True)
+        self._cv_combined = ImageCanvas(combf, "Original + Magnitud (overlay)",
+                                        w=295, h=200)
+        self._cv_combined.pack(expand=True)
+
         # Estadísticas
         SectionTitle(parent, "Estadísticas de la magnitud",
                      color=self.COLOR).pack(fill="x", pady=(6, 2))
@@ -457,7 +471,7 @@ class SobelPanel(BasePanel):
         self._action_buttons(p, apply_style="orange")
 
     def apply(self):
-        """Sobrescribimos para actualizar las 4 imágenes."""
+        """Sobrescribimos para actualizar las 5 imágenes."""
         if self._gray is None:
             messagebox.showwarning("Sin imagen",
                                    "Carga una imagen antes de aplicar el filtro.")
@@ -474,6 +488,11 @@ class SobelPanel(BasePanel):
             self._cv_res.show(array_to_photoimage(fr.image, 295, 220))
             self._cv_fx.show(array_to_photoimage(fr.extras["fx"], 295, 200))
             self._cv_fy.show(array_to_photoimage(fr.extras["fy"], 295, 200))
+
+            # Overlay: combina imagen original con la magnitud
+            combined = cv2.addWeighted(self._gray, 0.6, fr.extras["magnitude"], 0.8, 0)
+            self._cv_combined.show(array_to_photoimage(combined, 295, 200))
+
             self._statbar.update({**image_stats(fr.image)})
             self._status("Operador Sobel aplicado correctamente.", "success")
         except Exception as exc:
@@ -484,6 +503,7 @@ class SobelPanel(BasePanel):
         super().clear()
         self._cv_fx.clear()
         self._cv_fy.clear()
+        self._cv_combined.clear()
 
     def _run_filter(self):   # no se usa directamente (apply() está sobrescrito)
         pass
