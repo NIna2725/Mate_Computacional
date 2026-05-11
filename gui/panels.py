@@ -32,6 +32,9 @@ from gui.widgets import (
     SectionTitle, RadioGroup, StatBar,
 )
 
+# Valor especial para la opción overlay (no existe en el enum)
+_SOBEL_OVERLAY = "Original + Magnitud (overlay)"
+
 
 # ══════════════════════════════════════════════════════════
 #  BasePanel: lógica y layout compartidos
@@ -448,11 +451,14 @@ class SobelPanel(BasePanel):
         self._statbar.pack(fill="x")
 
     def _build_controls(self, p):
-        # Salida principal
+        # Salida principal — incluye la opción overlay
         self._output = tk.StringVar(value=SobelOutput.MAGNITUDE.value)
         SectionTitle(p, "Salida principal", color=self.COLOR).pack(fill="x")
-        RadioGroup(p, [(o.value, o.value) for o in SobelOutput],
-                   self._output).pack(anchor="w", pady=4)
+
+        # Opciones del enum + opción overlay extra
+        opciones = [(o.value, o.value) for o in SobelOutput]
+        opciones.append((_SOBEL_OVERLAY, _SOBEL_OVERLAY))
+        RadioGroup(p, opciones, self._output).pack(anchor="w", pady=4)
 
         # Normalización
         self._norm = tk.StringVar(value=NormMode.RESCALE.value)
@@ -480,18 +486,34 @@ class SobelPanel(BasePanel):
             self._status("Aplicando Operador Sobel…", "info")
             self.update_idletasks()
 
-            out = next(e for e in SobelOutput if e.value == self._output.get())
-            nrm = next(e for e in NormMode    if e.value == self._norm.get())
-            fr  = apply_sobel_filter(self._gray, out, nrm)
+            nrm = next(e for e in NormMode if e.value == self._norm.get())
 
-            self._result = fr.image
-            self._cv_res.show(array_to_photoimage(fr.image, 295, 220))
+            # Siempre calculamos con magnitud para tener todos los extras
+            fr = apply_sobel_filter(self._gray, SobelOutput.MAGNITUDE, nrm)
+
+            # Calculamos el overlay siempre
+            self._combined = cv2.addWeighted(
+                self._gray, 0.6, fr.extras["magnitude"], 0.8, 0)
+
+            # Elegimos qué mostrar en el canvas principal según la selección
+            selected = self._output.get()
+            if selected == _SOBEL_OVERLAY:
+                primary_img = self._combined
+                self._result = self._combined
+            elif selected == SobelOutput.GRAD_X.value:
+                primary_img = fr.extras["fx"]
+                self._result = fr.extras["fx"]
+            elif selected == SobelOutput.GRAD_Y.value:
+                primary_img = fr.extras["fy"]
+                self._result = fr.extras["fy"]
+            else:  # MAGNITUDE (default)
+                primary_img = fr.image
+                self._result = fr.image
+
+            self._cv_res.show(array_to_photoimage(primary_img, 295, 220))
             self._cv_fx.show(array_to_photoimage(fr.extras["fx"], 295, 200))
             self._cv_fy.show(array_to_photoimage(fr.extras["fy"], 295, 200))
-
-            # Overlay: combina imagen original con la magnitud
-            combined = cv2.addWeighted(self._gray, 0.6, fr.extras["magnitude"], 0.8, 0)
-            self._cv_combined.show(array_to_photoimage(combined, 295, 200))
+            self._cv_combined.show(array_to_photoimage(self._combined, 295, 200))
 
             self._statbar.update({**image_stats(fr.image)})
             self._status("Operador Sobel aplicado correctamente.", "success")
@@ -499,11 +521,26 @@ class SobelPanel(BasePanel):
             self._status(f"Error: {exc}", "error")
             messagebox.showerror("Error al filtrar", f"Error:\n{exc}")
 
+    def save(self):
+        """Guarda el overlay (original + magnitud) en disco."""
+        if not hasattr(self, '_combined') or self._combined is None:
+            self._status("No hay resultado que guardar. Aplica el filtro primero.", "warning")
+            return
+        path = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG", "*.png"), ("JPEG", "*.jpg"), ("BMP", "*.bmp")],
+            title="Guardar Original + Magnitud (overlay)",
+        )
+        if path:
+            Image.fromarray(self._combined, mode="L").save(path)
+            self._status(f"Overlay guardado en: {path}", "success")
+
     def clear(self):
         super().clear()
         self._cv_fx.clear()
         self._cv_fy.clear()
         self._cv_combined.clear()
+        self._combined = None
 
     def _run_filter(self):   # no se usa directamente (apply() está sobrescrito)
         pass
